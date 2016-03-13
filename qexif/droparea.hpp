@@ -7,67 +7,56 @@
 #include <QDir>
 #include <QThread>
 
-class Tagger : public QThread
+Q_DECLARE_METATYPE(QList<QUrl>)
+
+class WorkerThread : public QThread
 {
     Q_OBJECT
 public:
-    explicit Tagger(QObject* parent = 0) : QThread(parent)
+    void run() override
+    {
+        exec();
+    }
+};
+
+class Tagger : public QObject
+{
+    Q_OBJECT
+public:
+    explicit Tagger(QObject* parent = 0) : QObject(parent)
     {}
 
-    void setFiles(const QStringList& files)
-    {
-        m_files = files;
-    }
-
-    void setArtist(const QString& artist)
-    {
-        m_artist = artist;
-    }
-
-    void setCopyright(const QString& copyright)
-    {
-        m_copyright = copyright;
-    }
-
-protected:
-    void run() override;
+public slots:
+    void tagFiles(const QStringList& files,
+                  const QString& artist,
+                  const QString& copyright);
 
 signals:
     void progressChanged(int);
     void error(QString);
+    void finished();
 
 private:
     void setExifDataForFile(const QString& filename,
                             const QString& artist,
-                            const QString& copyright);
-
-private:
-    QStringList m_files;
-    QString m_artist;
-    QString m_copyright;
-
+                            const QString& copyright) const;
 };
 
-class Crawler : public QThread
+class Crawler : public QObject
 {
     Q_OBJECT
 public:
-    explicit Crawler(QObject* parent = 0) : QThread(parent)
+    explicit Crawler(QObject* parent = 0) : QObject(parent)
     {}
 
-    void setUrls(const QList<QUrl> urls)
-    {
-        m_urls = urls;
-    }
+public slots:
+    void collectFiles(const QList<QUrl> urls);
 
 signals:
     void finished(const QStringList& files);
 
-protected:
-    void run() override;
-
 private:
-    QStringList getJpegFilesInDir(const QString& dir);
+    QStringList getJpegFilesInDir(const QString& dir) const;
 
     static bool isJpeg(const QString& path)
     {
@@ -75,8 +64,6 @@ private:
                 || path.endsWith(".jpeg", Qt::CaseInsensitive);
     }
 
-private:
-    QList<QUrl> m_urls;
 };
 
 class DropArea : public QLabel
@@ -84,6 +71,7 @@ class DropArea : public QLabel
     Q_OBJECT
 public:
     explicit DropArea(QWidget *parent = 0);
+    ~DropArea();
 
     void startTagFiles(const QList<QUrl> &urls);
 
@@ -91,6 +79,11 @@ signals:
     void progressChanged(int progress);
     void taggingStarted(int totalFiles);
     void taggingFinished();
+
+    void runCrawler(const QList<QUrl> &urls);
+    void runTagger(const QStringList& files,
+                   const QString& artist,
+                   const QString& copyright);
 
 public slots:
 
@@ -123,6 +116,8 @@ private:
 
     quint32 m_filesCount;
     QStringList m_errorList;
+
+    WorkerThread m_worker;
 
     Crawler* m_crawler;
     Tagger* m_tagger;

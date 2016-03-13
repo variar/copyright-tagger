@@ -9,14 +9,16 @@
 #include <exiv2/exiv2.hpp>
 #include <exiv2/error.hpp>
 
-void Tagger::run()
+void Tagger::tagFiles(const QStringList& files,
+                      const QString& artist,
+                      const QString& copyright)
 {
     int progress = 0;
-    foreach(QString file, m_files)
+    foreach(QString file, files)
     {
         try
         {
-            setExifDataForFile(file, m_artist, m_copyright);
+            setExifDataForFile(file, artist, copyright);
         }
         catch(const std::exception& err)
         {
@@ -29,11 +31,12 @@ void Tagger::run()
         progress++;
         emit progressChanged(progress);
     }
+    emit finished();
 }
 
 void Tagger::setExifDataForFile(const QString& filename,
                             const QString& artist,
-                            const QString& copyright)
+                            const QString& copyright) const
 {
     qDebug() << "File path: " << filename;
 
@@ -66,11 +69,11 @@ void Tagger::setExifDataForFile(const QString& filename,
     image->writeMetadata();
 }
 
-void Crawler::run()
+void Crawler::collectFiles(const QList<QUrl> urls)
 {
     QStringList jpegFiles;
 
-    foreach (QUrl url, m_urls)
+    foreach (QUrl url, urls)
     {
         qInfo() << "Scanning " << url.toLocalFile();
         const QFileInfo pathInfo(url.toLocalFile());
@@ -101,7 +104,7 @@ void Crawler::run()
 }
 
 
-QStringList Crawler::getJpegFilesInDir(const QString& dir)
+QStringList Crawler::getJpegFilesInDir(const QString& dir) const
 {
     QQueue<QString> dirsToWalk;
     dirsToWalk.enqueue(dir);
@@ -131,22 +134,43 @@ QStringList Crawler::getJpegFilesInDir(const QString& dir)
 
 DropArea::DropArea(QWidget *parent) : QLabel(parent)
 {
+    qRegisterMetaType<QList<QUrl>>();
     setAcceptDrops(true);
 
-    m_crawler = new Crawler(this);
-    m_tagger = new Tagger(this);
+    m_crawler = new Crawler();
+    m_tagger = new Tagger();
+
+    m_crawler->moveToThread(&m_worker);
+    m_tagger->moveToThread(&m_worker);
 
     connect(m_crawler, SIGNAL(finished(QStringList)),
-            SLOT(onCrawlerFinished(QStringList)));
+            SLOT(onCrawlerFinished(QStringList)), Qt::QueuedConnection);
 
     connect(m_tagger, SIGNAL(finished()),
-            SLOT(onTaggerFinished()), Qt::BlockingQueuedConnection);
+            SLOT(onTaggerFinished()), Qt::QueuedConnection);
 
     connect(m_tagger, SIGNAL(progressChanged(int)),
             SIGNAL(progressChanged(int)), Qt::QueuedConnection);
 
     connect(m_tagger, SIGNAL(error(QString)),
             SLOT(onError(QString)), Qt::QueuedConnection);
+
+    connect(this, SIGNAL(runCrawler(QList<QUrl>)),
+            m_crawler, SLOT(collectFiles(QList<QUrl>)),
+            Qt::QueuedConnection);
+    connect(this, SIGNAL(runTagger(QStringList,QString,QString)),
+            m_tagger, SLOT(tagFiles(QStringList,QString,QString)),
+            Qt::QueuedConnection);
+
+    connect(this, SIGNAL(destroyed(QObject*)), &m_worker, SLOT(quit()));
+
+    m_worker.start();
+}
+
+DropArea::~DropArea()
+{
+    m_worker.quit();
+    m_worker.wait();
 }
 
 void DropArea::dragEnterEvent(QDragEnterEvent *event)
@@ -164,8 +188,7 @@ void DropArea::startCrawler(const QList<QUrl> &urls)
 {
     m_errorList.clear();
     setAcceptDrops(false);
-    m_crawler->setUrls(urls);
-    m_crawler->start();
+    emit runCrawler(urls);
 }
 
 void DropArea::dropEvent(QDropEvent *event)
@@ -189,10 +212,7 @@ void DropArea::onCrawlerFinished(const QStringList& jpegFiles)
     }
 
     emit taggingStarted(jpegFiles.size());
-    m_tagger->setFiles(jpegFiles);
-    m_tagger->setArtist(m_artist);
-    m_tagger->setCopyright(m_copyright);
-    m_tagger->start();
+    emit runTagger(jpegFiles, m_artist, m_copyright);
 }
 
 void DropArea::onTaggerFinished()
