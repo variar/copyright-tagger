@@ -22,6 +22,8 @@ void Tagger::run()
         {
             qCritical() << "Failed to set data for " << file
                         << " error: " << err.what();
+
+            emit error(file);
         }
 
         progress++;
@@ -43,16 +45,24 @@ void Tagger::setExifDataForFile(const QString& filename,
 
     image->readMetadata();
     Exiv2::ExifData &exifData = image->exifData();
+    Exiv2::IptcData& iptcData = image->iptcData();
+    Exiv2::XmpData& xmpData = image->xmpData();
     if (!copyright.isEmpty())
     {
         exifData["Exif.Image.Copyright"] = copyright.toLocal8Bit().data();
+        iptcData["Iptc.Application2.Copyright"] = copyright.toLocal8Bit().data();
+        xmpData["Xmp.dc.rights"] = copyright.toLocal8Bit().data();
     }
     if (!artist.isEmpty())
     {
         exifData["Exif.Image.Artist"] = artist.toLocal8Bit().data();
+        iptcData["Iptc.Application2.Byline"] = artist.toLocal8Bit().data();
+        xmpData["Xmp.dc.creator"] = artist.toLocal8Bit().data();
     }
 
     image->setExifData(exifData);
+    image->setIptcData(iptcData);
+    image->setXmpData(xmpData);
     image->writeMetadata();
 }
 
@@ -134,6 +144,9 @@ DropArea::DropArea(QWidget *parent) : QLabel(parent)
 
     connect(m_tagger, SIGNAL(progressChanged(int)),
             SIGNAL(progressChanged(int)), Qt::QueuedConnection);
+
+    connect(m_tagger, SIGNAL(error(QString)),
+            SLOT(onError(QString)), Qt::QueuedConnection);
 }
 
 void DropArea::dragEnterEvent(QDragEnterEvent *event)
@@ -142,15 +155,14 @@ void DropArea::dragEnterEvent(QDragEnterEvent *event)
         event->acceptProposedAction();
 }
 
-void DropArea::tagInFolder(const QString &path)
+void DropArea::startTagFiles(const QList<QUrl> &urls)
 {
-    QList<QUrl> urls;
-    urls << QUrl::fromLocalFile(path);
     startCrawler(urls);
 }
 
 void DropArea::startCrawler(const QList<QUrl> &urls)
 {
+    m_errorList.clear();
     setAcceptDrops(false);
     m_crawler->setUrls(urls);
     m_crawler->start();
@@ -167,10 +179,12 @@ void DropArea::dropEvent(QDropEvent *event)
 
 void DropArea::onCrawlerFinished(const QStringList& jpegFiles)
 {
-    if (jpegFiles.isEmpty())
+    m_filesCount = jpegFiles.size();
+    if (m_filesCount == 0)
     {
-        QMessageBox::warning(this, "Tagging finished", "No jpeg files found");
-        onTaggerFinished();
+        QMessageBox::warning(this, "Завершено", "Не найдено jpeg файлов");
+        emit taggingFinished();
+        setAcceptDrops(true);
         return;
     }
 
@@ -185,6 +199,22 @@ void DropArea::onTaggerFinished()
 {
     emit taggingFinished();
     setAcceptDrops(true);
+    if (m_errorList.empty())
+    {
+        QMessageBox::information(this, "Успешно завершено",
+                                 QString("Теги проставлены для %1 файлов").arg(m_filesCount));
+    }
+    else
+    {
+        QString errors = m_errorList.join("\r\n");
+        QMessageBox::warning(this, "Ошибка",
+                             QString("Для следующих файлов теги не проставлены: %1").arg(errors));
+    }
+}
+
+void DropArea::onError(QString error)
+{
+    m_errorList << error;
 }
 
 

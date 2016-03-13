@@ -24,7 +24,8 @@ public slots:
     void onTaggingStared();
     void onTaggingFinished();
 
-    void onSelectFolder();
+    void onSelectFiles();
+    void onSelectFolders();
 private:
     Ui::MainWindow *ui;
     QSettings* m_settings;

@@ -44,7 +44,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->actionAboutQt, SIGNAL(triggered(bool)), SLOT(showAboutQtDialog()));
     connect(ui->actionAbout, SIGNAL(triggered(bool)), SLOT(showAboutDialog()));
 
-    connect(ui->pushButton, SIGNAL(clicked(bool)), SLOT(onSelectFolder()));
+    connect(ui->selectFileButton, SIGNAL(clicked(bool)), SLOT(onSelectFiles()));
+    connect(ui->selectFolderButton, SIGNAL(clicked(bool)), SLOT(onSelectFolders()));
 }
 
 MainWindow::~MainWindow()
@@ -66,13 +67,25 @@ void MainWindow::onTaggingFinished()
     ui->progressBar->setEnabled(false);
 }
 
-void MainWindow::onSelectFolder()
+void MainWindow::onSelectFiles()
 {
-    QString path = QFileDialog::getExistingDirectory(this, "Select folder with jpeg files");
-    if (!path.isEmpty())
+    QList<QUrl> urls = QFileDialog::getOpenFileUrls(this,
+                                                    "Select one one or more jpeg files",
+                                                    QUrl(), "Jpeg files (*.jpg *.jpeg)");
+    if (!urls.isEmpty())
     {
-        qDebug() << "Selected path: " << path;
-        ui->dropLabel->tagInFolder(path);
+        ui->dropLabel->startTagFiles(urls);
+    }
+}
+
+void MainWindow::onSelectFolders()
+{
+    QUrl url = QFileDialog::getExistingDirectoryUrl(this, "Select folder with jpeg files");
+    if (!url.isEmpty())
+    {
+        QList<QUrl> urls;
+        urls << url;
+        ui->dropLabel->startTagFiles(urls);
     }
 }
 
@@ -91,13 +104,12 @@ void MainWindow::showAboutDialog()
 {
     QString text;
     text.append("Copyright Tagger v 0.1.0\n\n");
-    text.append("Drop folder to this program and it will fill"\
-                " Exif.Image.Copyright and Exif.Image.Artist"\
-                " tags for all jpeg images in the dropped folder.\n\n");
-    text.append("Author: Anton Filimonov <anton.filimonov@gmail.com>.\n\n");
-    text.append("This program uses exiv2 library (www.exiv2.org).\n\n");
-    text.append("This program is distributed under GPLv3 license.");
+    text.append("Copyright Tagger заполнит теги Exif.Image.Copyright и Exif.Image.Artist"\
+                " для всех выбранных файлов в формате JPEG.\n\n");
+    text.append("Автор: Антон Филимонов <anton.filimonov@gmail.com>.\n\n");
+    text.append("Для работы с Exif используется exiv2 (www.exiv2.org).\n\n");
+    text.append("Программа распространяется на условиях лицензии GPLv3.");
 
-    QMessageBox::about(this, "About Copyright Tagger",
+    QMessageBox::about(this, "О программе Copyright Tagger",
                        text);
 }

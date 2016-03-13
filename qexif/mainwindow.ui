@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>693</width>
-    <height>381</height>
+    <width>633</width>
+    <height>418</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -28,34 +28,44 @@
        </sizepolicy>
       </property>
       <property name="title">
-       <string>Tags</string>
+       <string>Теги</string>
       </property>
       <layout class="QFormLayout" name="formLayout">
-       <item row="0" column="0">
+       <item row="1" column="0">
         <widget class="QLabel" name="label">
          <property name="text">
-          <string>Author</string>
+          <string>Автор</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="1">
+       <item row="1" column="1">
         <widget class="QLineEdit" name="lineEdit">
          <property name="text">
           <string/>
          </property>
         </widget>
        </item>
-       <item row="1" column="0">
+       <item row="2" column="0">
         <widget class="QLabel" name="label_2">
          <property name="text">
           <string>Copyright</string>
          </property>
         </widget>
        </item>
-       <item row="1" column="1">
+       <item row="2" column="1">
         <widget class="QLineEdit" name="lineEdit_2">
          <property name="text">
           <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="label_3">
+         <property name="text">
+          <string>ВНИМАНИЕ! В полях ниже можно использовать только английские символы</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -76,11 +86,22 @@
      </widget>
     </item>
     <item>
-     <widget class="QPushButton" name="pushButton">
-      <property name="text">
-       <string>Select folder</string>
-      </property>
-     </widget>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QPushButton" name="selectFileButton">
+        <property name="text">
+         <string>Открыть файлы</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="selectFolderButton">
+        <property name="text">
+         <string>Открыть папку</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <widget class="DropArea" name="dropLabel">
@@ -97,7 +118,7 @@
        <enum>QFrame::Box</enum>
       </property>
       <property name="text">
-       <string>Drop folder here</string>
+       <string>Drop file or folder here</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
@@ -111,13 +132,13 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>693</width>
+     <width>633</width>
      <height>28</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuAbout">
     <property name="title">
-     <string>Help</string>
+     <string>Помощь</string>
     </property>
     <addaction name="actionAbout"/>
     <addaction name="actionAboutQt"/>
@@ -126,12 +147,12 @@
   </widget>
   <action name="actionAbout">
    <property name="text">
-    <string>About</string>
+    <string>О программе</string>
    </property>
   </action>
   <action name="actionAboutQt">
    <property name="text">
-    <string>About Qt</string>
+    <string>О Qt</string>
    </property>
   </action>
  </widget>

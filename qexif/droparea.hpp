@@ -34,6 +34,7 @@ protected:
 
 signals:
     void progressChanged(int);
+    void error(QString);
 
 private:
     void setExifDataForFile(const QString& filename,
@@ -84,7 +85,7 @@ class DropArea : public QLabel
 public:
     explicit DropArea(QWidget *parent = 0);
 
-    void tagInFolder(const QString& path);
+    void startTagFiles(const QList<QUrl> &urls);
 
 signals:
     void progressChanged(int progress);
@@ -111,6 +112,7 @@ protected:
 private slots:
     void onCrawlerFinished(const QStringList& files);
     void onTaggerFinished();
+    void onError(QString error);
 
 private:
     void startCrawler(const QList<QUrl>& urls);
@@ -118,6 +120,9 @@ private:
 private:
     QString m_artist;
     QString m_copyright;
+
+    quint32 m_filesCount;
+    QStringList m_errorList;
 
     Crawler* m_crawler;
     Tagger* m_tagger;
