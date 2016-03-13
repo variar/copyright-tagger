@@ -118,7 +118,7 @@
        <enum>QFrame::Box</enum>
       </property>
       <property name="text">
-       <string>Drop file or folder here</string>
+       <string>Перетащите сюда файлы или папки с фотографиями</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
