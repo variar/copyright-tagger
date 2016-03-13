@@ -4,6 +4,7 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -89,6 +90,7 @@ void MainWindow::showAboutQtDialog()
 void MainWindow::showAboutDialog()
 {
     QString text;
+    text.append("Copyright Tagger v 0.1.0\n\n");
     text.append("Drop folder to this program and it will fill"\
                 " Exif.Image.Copyright and Exif.Image.Artist"\
                 " tags for all jpeg images in the dropped folder.\n\n");

@@ -4,9 +4,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QQueue>
-#include <QtConcurrent>
 #include <QMessageBox>
-
 
 #include <exiv2/exiv2.hpp>
 #include <exiv2/error.hpp>
@@ -36,7 +34,13 @@ void Tagger::setExifDataForFile(const QString& filename,
                             const QString& copyright)
 {
     qDebug() << "File path: " << filename;
+
+#ifdef EXV_UNICODE_PATH
     Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filename.toStdWString());
+#else
+    Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filename.toLocal8Bit().data());
+#endif
+
     image->readMetadata();
     Exiv2::ExifData &exifData = image->exifData();
     if (!copyright.isEmpty())

@@ -5,7 +5,6 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QDir>
-#include <QFutureWatcher>
 #include <QThread>
 
 class Tagger : public QThread
@@ -122,8 +121,6 @@ private:
 
     Crawler* m_crawler;
     Tagger* m_tagger;
-
-    QFutureWatcher<void> m_taggingWatcher;
 };
 
 #endif // DROPAREA_HPP
