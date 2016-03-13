@@ -3,6 +3,7 @@
 
 #include <QSettings>
 #include <QMessageBox>
+#include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -10,6 +11,11 @@ MainWindow::MainWindow(QWidget *parent) :
     m_settings(new QSettings("tags.ini", QSettings::IniFormat, this))
 {
     ui->setupUi(this);
+
+    connect(ui->dropLabel, SIGNAL(taggingStarted(int)),
+            this, SLOT(onTaggingStared()));
+    connect(ui->dropLabel, SIGNAL(taggingFinished()),
+            this, SLOT(onTaggingFinished()));
 
     connect(ui->dropLabel, SIGNAL(progressChanged(int)),
             ui->progressBar, SLOT(setValue(int)));
@@ -36,11 +42,37 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(ui->actionAboutQt, SIGNAL(triggered(bool)), SLOT(showAboutQtDialog()));
     connect(ui->actionAbout, SIGNAL(triggered(bool)), SLOT(showAboutDialog()));
+
+    connect(ui->pushButton, SIGNAL(clicked(bool)), SLOT(onSelectFolder()));
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::onTaggingStared()
+{
+    ui->lineEdit->setEnabled(false);
+    ui->lineEdit_2->setEnabled(false);
+    ui->progressBar->setEnabled(true);
+}
+
+void MainWindow::onTaggingFinished()
+{
+    ui->lineEdit->setEnabled(true);
+    ui->lineEdit_2->setEnabled(true);
+    ui->progressBar->setEnabled(false);
+}
+
+void MainWindow::onSelectFolder()
+{
+    QString path = QFileDialog::getExistingDirectory(this, "Select folder with jpeg files");
+    if (!path.isEmpty())
+    {
+        qDebug() << "Selected path: " << path;
+        ui->dropLabel->tagInFolder(path);
+    }
 }
 
 void MainWindow::updateSettings()

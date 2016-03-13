@@ -5,19 +5,89 @@
 #include <QFile>
 #include <QQueue>
 #include <QtConcurrent>
+#include <QMessageBox>
+
 
 #include <exiv2/exiv2.hpp>
+#include <exiv2/error.hpp>
 
-namespace
+void Tagger::run()
 {
+    int progress = 0;
+    foreach(QString file, m_files)
+    {
+        try
+        {
+            setExifDataForFile(file, m_artist, m_copyright);
+        }
+        catch(const std::exception& err)
+        {
+            qCritical() << "Failed to set data for " << file
+                        << " error: " << err.what();
+        }
 
-bool isJpeg(const QString& path)
-{
-    return path.endsWith(".jpg", Qt::CaseInsensitive)
-            || path.endsWith(".jpeg", Qt::CaseInsensitive);
+        progress++;
+        emit progressChanged(progress);
+    }
 }
 
-QStringList GetJpegFilesInDir(const QString& dir)
+void Tagger::setExifDataForFile(const QString& filename,
+                            const QString& artist,
+                            const QString& copyright)
+{
+    qDebug() << "File path: " << filename;
+    Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filename.toStdWString());
+    image->readMetadata();
+    Exiv2::ExifData &exifData = image->exifData();
+    if (!copyright.isEmpty())
+    {
+        exifData["Exif.Image.Copyright"] = copyright.toLocal8Bit().data();
+    }
+    if (!artist.isEmpty())
+    {
+        exifData["Exif.Image.Artist"] = artist.toLocal8Bit().data();
+    }
+
+    image->setExifData(exifData);
+    image->writeMetadata();
+}
+
+void Crawler::run()
+{
+    QStringList jpegFiles;
+
+    foreach (QUrl url, m_urls)
+    {
+        qInfo() << "Scanning " << url.toLocalFile();
+        const QFileInfo pathInfo(url.toLocalFile());
+
+        if (!pathInfo.exists())
+        {
+            qWarning() << "Path not exists: " << pathInfo.absoluteFilePath();
+            continue;
+        }
+
+        if (pathInfo.isFile() && isJpeg(pathInfo.fileName()))
+        {
+            jpegFiles.append(pathInfo.absoluteFilePath());
+        }
+        else if (pathInfo.isDir())
+        {
+            jpegFiles << getJpegFilesInDir(pathInfo.absoluteFilePath());
+        }
+        else
+        {
+            qWarning() << "Path not jpeg: " << pathInfo.absoluteFilePath();
+        }
+    }
+
+    qDebug() << "Found " << jpegFiles.size() << " jpeg files";
+
+    emit finished(jpegFiles);
+}
+
+
+QStringList Crawler::getJpegFilesInDir(const QString& dir)
 {
     QQueue<QString> dirsToWalk;
     dirsToWalk.enqueue(dir);
@@ -45,35 +115,21 @@ QStringList GetJpegFilesInDir(const QString& dir)
     return jpegFiles;
 }
 
-void SetExifDataForFile(const QString& filename,
-                        const QString& artist,
-                        const QString& copyright)
-{
-    Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filename.toLocal8Bit().data());
-    image->readMetadata();
-    Exiv2::ExifData &exifData = image->exifData();
-    if (!copyright.isEmpty())
-    {
-        exifData["Exif.Image.Copyright"] = copyright.toLocal8Bit().data();
-    }
-    if (!artist.isEmpty())
-    {
-        exifData["Exif.Image.Artist"] = artist.toLocal8Bit().data();
-    }
-
-    image->setExifData(exifData);
-    image->writeMetadata();
-}
-
-}
-
 DropArea::DropArea(QWidget *parent) : QLabel(parent)
 {
     setAcceptDrops(true);
-    connect(&m_taggingWatcher, SIGNAL(progressValueChanged(int)),
-            this, SIGNAL(progressChanged(int)));
-    connect(&m_taggingWatcher, SIGNAL(finished()),
-            this, SIGNAL(taggingFinished()));
+
+    m_crawler = new Crawler(this);
+    m_tagger = new Tagger(this);
+
+    connect(m_crawler, SIGNAL(finished(QStringList)),
+            SLOT(onCrawlerFinished(QStringList)));
+
+    connect(m_tagger, SIGNAL(finished()),
+            SLOT(onTaggerFinished()), Qt::BlockingQueuedConnection);
+
+    connect(m_tagger, SIGNAL(progressChanged(int)),
+            SIGNAL(progressChanged(int)), Qt::QueuedConnection);
 }
 
 void DropArea::dragEnterEvent(QDragEnterEvent *event)
@@ -82,40 +138,49 @@ void DropArea::dragEnterEvent(QDragEnterEvent *event)
         event->acceptProposedAction();
 }
 
+void DropArea::tagInFolder(const QString &path)
+{
+    QList<QUrl> urls;
+    urls << QUrl::fromLocalFile(path);
+    startCrawler(urls);
+}
+
+void DropArea::startCrawler(const QList<QUrl> &urls)
+{
+    setAcceptDrops(false);
+    m_crawler->setUrls(urls);
+    m_crawler->start();
+}
+
 void DropArea::dropEvent(QDropEvent *event)
 {
     const QList<QUrl> urls = event->mimeData()->urls();
-    QList<QString> jpegFiles;
-
-    foreach (QUrl url, urls)
+    if (!urls.isEmpty())
     {
-        const QFileInfo pathInfo(url.path());
+        startCrawler(urls);
+    }
+}
 
-        if (!pathInfo.exists())
-            continue;
-
-        if (pathInfo.isFile() && isJpeg(pathInfo.fileName()))
-        {
-            jpegFiles.append(pathInfo.absoluteFilePath());
-        }
-        else if (pathInfo.isDir())
-        {
-            jpegFiles << GetJpegFilesInDir(pathInfo.absoluteFilePath());
-        }
+void DropArea::onCrawlerFinished(const QStringList& jpegFiles)
+{
+    if (jpegFiles.isEmpty())
+    {
+        QMessageBox::warning(this, "Tagging finished", "No jpeg files found");
+        onTaggerFinished();
+        return;
     }
 
     emit taggingStarted(jpegFiles.size());
+    m_tagger->setFiles(jpegFiles);
+    m_tagger->setArtist(m_artist);
+    m_tagger->setCopyright(m_copyright);
+    m_tagger->start();
+}
 
-    int progress = 0;
-    foreach(QString file, jpegFiles)
-    {
-        SetExifDataForFile(file, m_artist, m_copyright);
-        progress++;
-        emit progressChanged(progress);
-    }
-
+void DropArea::onTaggerFinished()
+{
     emit taggingFinished();
-    //m_taggingWatcher.setFuture(QtConcurrent::map(jpegFiles, SetExifDataForFile));
+    setAcceptDrops(true);
 }
 
 

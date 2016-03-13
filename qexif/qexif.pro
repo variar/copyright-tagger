@@ -8,10 +8,14 @@ QT       += core gui concurrent
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-TARGET = qexif
+TARGET = copyright_tagger
 TEMPLATE = app
 
 LIBS += -lexiv2
+
+win32{
+DEFINES += EXV_UNICODE_PATH
+}
 
 CONFIG += c++11
 
@@ -26,3 +30,5 @@ FORMS    += mainwindow.ui
 
 RESOURCES += \
     main.qrc
+
+RC_FILE = main.rc

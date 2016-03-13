@@ -21,6 +21,10 @@ public slots:
     void showAboutDialog();
     void showAboutQtDialog();
 
+    void onTaggingStared();
+    void onTaggingFinished();
+
+    void onSelectFolder();
 private:
     Ui::MainWindow *ui;
     QSettings* m_settings;
